@@ -1,2 +1,15 @@
 # TAMUC-GIS-VR-app
-This is a Mobile/ web app that will be a testbed for vr experiments for his. The code will use Cesium.js and  will mainly be written in JavaScript and possibly other dialects that convert to JavaScript, such as coffeescript or typescript. The code is licensed under the  Mozilla Public License for more information, please visit the  Mozilla license page.
+This is a web app that uses Cesium and WebVR fro giving a virtual reality tour of the TAMUC University Campus. 
+Languages/ environment info: 
+
+Languages: HTML, CSS, Javascript, GLSL.
+
+Environment:
+
+3.js / Aframe
+
+
+Libraries
+
+
+The code is licensed under the  Mozilla Public License for more information, please visit the  Mozilla license page.
