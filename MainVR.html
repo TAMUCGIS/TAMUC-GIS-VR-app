@@ -1,22 +1,137 @@
-<!doctype HTML>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta http-equiv="X-UA-Compatible" content="IE=edge">
-<meta name="viewport" content="width=device-width, initial-scale=1, maxium-scale=1, minimum-scale=1, user-scalable=no">
-<title>Test of Cesium VR </title>
-  <script src="../Build/Cesium/Cesium.js"></script>
-  <style>
-    @import url(../Build?Cesium/Widgets/widgets.css);
-    html, body, #cesiumContainer {
-      width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden;
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no">
+    <meta name="description" content="Configure viewer to add a button enabling look at a mobile device with cardboard.">
+    <meta name="cesium-sandcastle-labels" content="Beginner, Showcases">
+    <title>Cesium Demo</title>
+    <script src="../Build/Cesium/Cesium.js"></script>
+    <script src="milsymbol.js"></script>
+    <style>
+        @import url(../Build/Cesium/Widgets/widgets.css);
+        html, body, #cesiumContainer {
+            width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden;
+        }
+    </style>
+    <script type="text/javascript" src="./Sandcastle/Sandcastle-header.js"></script>
+    <script type="text/javascript" src="../../../ThirdParty/requirejs-2.1.20/require.js"></script>
+</head>
+
+<body class="sandcastle-loading" data-sandcastle-bucket="bucket-requirejs.html">
+
+<div id="cesiumContainer" class="fullSize"></div>
+<div id="loadingOverlay"><h1>Loading...</h1></div>
+<div id="toolbar"></div>
+
+<script id="cesium_sandcastle_script">
+   // put your key for Bing Map here, see: https://www.bingmapsportal.com/
+//   Cesium.BingMapsApi.defaultKey = 'xxxxxxxxxxxx'
+  // create a Cesium Entity with a MIL-2525 symbol at the given location
+function milEntityAt(lng, lat, alt) {
+    // create a MIL-2525 symbol
+    var sym = new MS.symbol("sfgpewrh--mt", {
+        size:35,
+		quantity: 20,
+		staffComments: "staff",
+		additionalInformation: "info",
+		direction: (750*360/6400),
+		type: "machine gun".toUpperCase(),
+		dtg: "time",
+		location: "location"
+		});
+    // return an Entity with the mil2525 symbol
+    return new Cesium.Entity({
+      position: Cesium.Cartesian3.fromDegrees(lng, lat, alt),
+      billboard: new Cesium.BillboardGraphics({
+          image: sym.getMarker().asCanvas(),
+          show: true,
+          scale: 1.2,
+          width: 240.0,
+          height: 80.0 })
+      })
+}
+// start the Cesium viewer
+function startup(Cesium) {
+    'use strict';
+// assume we have a valid VR display
+var vrDisplay = window;
+navigator.getVRDisplays().then(function(displays) {
+  if (displays.length > 0) {
+    vrDisplay = displays[0];
+  }
+});
+// create the Cesium viewer
+var viewer = new Cesium.Viewer('cesiumContainer', { vrButton : true });
+// Click the VR button in the bottom right of the screen to switch to VR mode.
+viewer.scene.globe.enableLighting = true;
+viewer.terrainProvider = new Cesium.CesiumTerrainProvider({
+    url : '//assets.agi.com/stk-terrain/world',
+    requestVertexNormals : true
+});
+viewer.scene.globe.depthTestAgainstTerrain = true;
+// initial location Sydney
+var longitude = 151.2093;
+var latitude = -33.8688;
+var altitude = 200.0;
+var entity = viewer.entities.add(milEntityAt(longitude, latitude, altitude));
+viewer.flyTo(entity);
+// Set initial camera position and orientation to be in the model's reference frame.
+var camera = viewer.camera;
+camera.position = new Cesium.Cartesian3(0.25, 0.0, 0.0);
+camera.direction = new Cesium.Cartesian3(1.0, 0.0, 0.0);
+camera.up = new Cesium.Cartesian3(0.0, 0.0, 1.0);
+camera.right = new Cesium.Cartesian3(0.0, -1.0, 0.0);
+viewer.scene.preRender.addEventListener(function(scene, time) {
+    var position = entity.position.getValue(time);
+    var pose = vrDisplay.getPose();
+    var ori = pose.orientation;
+    if (!Cesium.defined(position)) {
+        return;
     }
-  </style>
-  </head>
-  <body>
-    <div id="cesiumContainer"></div>
-    <script>
-      var viewer = new Cesium.Viewer('cesiumContainer');
-    </script>
-  </body>
+    // the tricky bit
+     var transform;
+     var q;
+      if (Cesium.defined(ori)) {
+        if (ori[0] == 0 && ori[1] == 0 && ori[2] == 0 && ori[3] == 0) {
+              q = Cesium.Quaternion.IDENTITY;
+            }
+            else {
+              q = new Cesium.Quaternion(ori[0], ori[1], ori[2], ori[3]);
+            }
+         transform = Cesium.Matrix4.fromRotationTranslation(Cesium.Matrix3.fromQuaternion(q), position);
+      } else {
+         transform = Cesium.Transforms.eastNorthUpToFixedFrame(position);
+      }
+    // Save the camera state
+    var offset = Cesium.Cartesian3.clone(camera.position);
+    var direction = Cesium.Cartesian3.clone(camera.direction);
+    var up = Cesium.Cartesian3.clone(camera.up);
+    // Set camera to be in model's reference frame.
+    camera.lookAtTransform(transform);
+    // Reset the camera state to the saved state so it appears fixed in the model's frame.
+    Cesium.Cartesian3.clone(offset, camera.position);
+    Cesium.Cartesian3.clone(direction, camera.direction);
+    Cesium.Cartesian3.clone(up, camera.up);
+    Cesium.Cartesian3.cross(direction, up, camera.right);
+});
+// create a few other symbols nearby to look at
+Cesium.Math.setRandomNumberSeed(3);
+for (var i = 0; i < 10; ++i) {
+      var lng = longitude + Cesium.Math.nextRandomNumber()/100.0;
+      var lat = latitude + Cesium.Math.nextRandomNumber()/100.0;
+      viewer.entities.add(milEntityAt(lng, lat, altitude));
+}
+  Sandcastle.finishedLoading();
+} // end start Cesium
+// launch Cesium if available
+if (typeof Cesium !== "undefined") {
+    startup(Cesium);
+} else if (typeof require === "function") {
+    require(["Cesium"], startup);
+}
+</script>
+
+</body>
 </html>
